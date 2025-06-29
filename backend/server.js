@@ -31,6 +31,8 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 app.use('/api/tasks', require('./routes/tasks'));
+const cors = require('cors');
+
 app.use(
   cors({
     origin: ['http://localhost:5173', 'https://todo-task-manager-hackathon.vercel.app'],
