@@ -1,7 +1,7 @@
 // src/App.jsx
 // src/App.jsx
 import { useState, useEffect } from 'react';
-import { GoogleLogin } from '@react-oauth/google';
+import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import axios from 'axios';
 import TaskForm from './TaskForm';
 import TaskList from './TaskList';
@@ -18,18 +18,27 @@ function App() {
 
   const handleLogin = async (credentialResponse) => {
     try {
-      const res = await axios.post('https://todo-task-manager-hackathon.onrender.com/api/auth/google', {
-        token: credentialResponse.credential,
-      });
+      const res = await axios.post(
+        'https://todo-task-manager-hackathon.onrender.com/api/auth/google',
+        { token: credentialResponse.credential }
+      );
 
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       setUser(res.data.user);
       toast.success(`Welcome ${res.data.user.name}`);
     } catch (err) {
-      console.error("❌ Login failed:", err.response?.data || err.message);
-      toast.error("Login failed");
+      console.error('❌ Login failed:', err.response?.data || err.message);
+      toast.error('Login failed');
     }
+  };
+
+  const handleLogout = () => {
+    googleLogout();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    toast.info('Logged out');
   };
 
   return (
@@ -39,14 +48,27 @@ function App() {
           <h2>Login with Google</h2>
           <GoogleLogin
             onSuccess={handleLogin}
-            onError={() => console.log("❌ Google Login Failed")}
+            onError={() => toast.error('❌ Google Login Failed')}
           />
         </>
       ) : (
         <>
-          <h2>Welcome, {user.name}</h2>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem',
+            }}
+          >
+            <h2>Welcome, {user.name}</h2>
+            <button onClick={handleLogout}>🚪 Logout</button>
+          </div>
+          <TaskForm onTaskAdded={fetchTasks} />
+<TaskList tasks={tasks} />
+
           <TaskForm onTaskAdded={() => window.location.reload()} />
-          <TaskList />
+          
         </>
       )}
       <ToastContainer />
