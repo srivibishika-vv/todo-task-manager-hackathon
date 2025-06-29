@@ -1,64 +1,94 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import axios from 'axios';
-import { toast } from 'react-toastify';
+import TaskForm from './TaskForm';
+import TaskList from './TaskList';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
-const TaskForm = ({ onTaskAdded }) => {
-  const [title, setTitle] = useState('');
-  const [dueDate, setDueDate] = useState('');
+function App() {
+  const [user, setUser] = useState(null);
+  const [tasks, setTasks] = useState([]);
 
-  const API_URL = 'https://todo-task-manager-hackathon.onrender.com/api/tasks';
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const fetchTasks = async () => {
     const token = localStorage.getItem('token');
-
-    if (!title.trim()) {
-      toast.warning('Task title is required');
-      return;
-    }
-
     try {
-      await axios.post(
-        API_URL,
-        {
-          title,
-          dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setTitle('');
-      setDueDate('');
-      toast.success('Task added successfully');
-      onTaskAdded(); // ✅ Refresh the task list
+      const res = await axios.get('https://todo-task-manager-hackathon.onrender.com/api/tasks', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTasks(res.data);
     } catch (err) {
-      console.error('❌ Error adding task:', err.message);
-      toast.error('Failed to add task');
+      console.error('Error fetching tasks:', err.message);
     }
   };
 
-  return (
-    <form onSubmit={handleSubmit} style={{ marginBottom: '2rem' }}>
-      <input
-        type="text"
-        placeholder="Enter task title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        style={{ marginRight: '10px' }}
-      />
-      <input
-        type="date"
-        value={dueDate}
-        onChange={(e) => setDueDate(e.target.value)}
-        style={{ marginRight: '10px' }}
-      />
-      <button type="submit">➕ Add Task</button>
-    </form>
-  );
-};
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+      fetchTasks();
+    }
+  }, []);
 
-export default TaskForm;
+  const handleLogin = async (credentialResponse) => {
+    try {
+      const res = await axios.post(
+        'https://todo-task-manager-hackathon.onrender.com/api/auth/google',
+        { token: credentialResponse.credential }
+      );
+
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      setUser(res.data.user);
+      toast.success(`Welcome ${res.data.user.name}`);
+      fetchTasks(); // fetch tasks after login
+    } catch (err) {
+      console.error('❌ Login failed:', err.response?.data || err.message);
+      toast.error('Login failed');
+    }
+  };
+
+  const handleLogout = () => {
+    googleLogout();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setTasks([]);
+    toast.info('Logged out');
+  };
+
+  return (
+    <div style={{ padding: '2rem' }}>
+      {!user ? (
+        <>
+          <h2>Login with Google</h2>
+          <GoogleLogin
+            onSuccess={handleLogin}
+            onError={() => toast.error('❌ Google Login Failed')}
+          />
+        </>
+      ) : (
+        <>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem',
+            }}
+          >
+            <h2>Welcome, {user.name}</h2>
+            <button onClick={handleLogout}>🚪 Logout</button>
+          </div>
+
+          {/* ✅ Task form & list using lifted state */}
+          <TaskForm onTaskAdded={fetchTasks} />
+          <TaskList tasks={tasks} fetchTasks={fetchTasks} />
+        </>
+      )}
+      <ToastContainer />
+    </div>
+  );
+}
+
+export default App;
