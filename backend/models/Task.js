@@ -1,11 +1,10 @@
 const mongoose = require('mongoose');
 
 const taskSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: String,
+  title: String,
   completed: { type: Boolean, default: false },
-  dueDate: Date,
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-}, { timestamps: true });
+  dueDate: Date, // 🆕 Added field
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+});
 
 module.exports = mongoose.model('Task', taskSchema);

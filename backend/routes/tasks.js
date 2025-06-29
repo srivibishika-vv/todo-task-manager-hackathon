@@ -3,15 +3,17 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 
+// ✅ Updated schema with dueDate
 const taskSchema = new mongoose.Schema({
   title: String,
-  completed: Boolean,
+  completed: { type: Boolean, default: false },
+  dueDate: Date, // 🆕 Added dueDate field
   userId: String,
 });
 
 const Task = mongoose.model("Task", taskSchema);
 
-// Middleware to check JWT
+// ✅ Middleware to check JWT
 const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1]; // Bearer <token>
   if (!token) return res.status(403).json({ message: "No token provided" });
@@ -25,41 +27,57 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// ✅ Create Task
+// ✅ Create Task (with optional dueDate)
 router.post("/", verifyToken, async (req, res) => {
-  const task = await Task.create({
-    title: req.body.title,
-    completed: false,
-    userId: req.userId,
-  });
-  res.json(task);
+  try {
+    const { title, dueDate } = req.body;
+
+    const task = await Task.create({
+      title,
+      dueDate: dueDate ? new Date(dueDate) : null, // parse if provided
+      completed: false,
+      userId: req.userId,
+    });
+
+    res.json(task);
+  } catch (err) {
+    res.status(500).json({ message: "Error creating task", error: err.message });
+  }
 });
 
 // ✅ Get All Tasks for User
 router.get("/", verifyToken, async (req, res) => {
-  const tasks = await Task.find({ userId: req.userId });
-  res.json(tasks);
+  try {
+    const tasks = await Task.find({ userId: req.userId });
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching tasks", error: err.message });
+  }
 });
 
-// ✅ Toggle Complete
-router.patch("/:id", verifyToken, async (req, res) => {
-  const task = await Task.findByIdAndUpdate(
-    req.params.id,
-    { completed: req.body.completed },
-    { new: true }
-  );
-  res.json(task);
+// ✅ Toggle Complete or Edit Title or DueDate
+router.put("/:id", verifyToken, async (req, res) => {
+  try {
+    const updatedFields = {};
+    if (req.body.completed !== undefined) updatedFields.completed = req.body.completed;
+    if (req.body.title !== undefined) updatedFields.title = req.body.title;
+    if (req.body.dueDate !== undefined) updatedFields.dueDate = new Date(req.body.dueDate);
+
+    const task = await Task.findByIdAndUpdate(req.params.id, updatedFields, { new: true });
+    res.json(task);
+  } catch (err) {
+    res.status(500).json({ message: "Error updating task", error: err.message });
+  }
 });
 
-// ✅ Delete
+// ✅ Delete Task
 router.delete("/:id", verifyToken, async (req, res) => {
-  await Task.findByIdAndDelete(req.params.id);
-  res.json({ message: "Deleted" });
+  try {
+    await Task.findByIdAndDelete(req.params.id);
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    res.status(500).json({ message: "Error deleting task", error: err.message });
+  }
 });
-const auth = require('../middleware/auth');
-
-// Apply to all routes
-router.use(auth);
-
 
 module.exports = router;
